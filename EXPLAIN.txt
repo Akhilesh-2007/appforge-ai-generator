@@ -1,0 +1,823 @@
+AI APP GENERATOR - COMPLETE PROJECT EXPLANATION
+================================================
+
+Review date: June 8, 2026
+Selected role: Role 1 - Frontend Engineer
+
+This document explains the complete project as it currently exists. No source
+code was changed during this review. EXPLAIN.txt is the only file added.
+
+Review boundary:
+- Every authored project file, configuration file, generated root file, and
+  public asset is explained individually below.
+- .git, .next, and node_modules are generated/internal directories. They are
+  explained as directories rather than listing thousands of internal files.
+
+
+1. PROJECT IN PLAIN LANGUAGE
+============================
+
+AppForge is a frontend-only, metadata-driven application renderer.
+
+A user writes or selects a JSON configuration. The application:
+1. Parses the JSON.
+2. Validates its page and component structure with Zod.
+3. Stores the text, parsed configuration, form values, and UI state in Zustand.
+4. Chooses a page layout such as dashboard, form, or blank.
+5. Recursively converts each component configuration into a React component.
+6. Shows warnings, empty states, or component-level error fallbacks when it
+   encounters unsupported or broken configuration.
+
+Example JSON:
+
+{
+  "title": "Sales Dashboard",
+  "layout": "dashboard",
+  "components": [
+    {
+      "type": "card",
+      "title": "Revenue",
+      "value": "$42,000",
+      "trend": "+8%",
+      "trendDirection": "up"
+    }
+  ]
+}
+
+The most important architectural idea is that the JSON does not contain React
+code. It contains metadata. The component registry maps metadata type names,
+such as "card" or "table", to reusable React implementations.
+
+
+2. WHAT THE PROJECT IMPLEMENTS TODAY
+====================================
+
+Implemented:
+- A polished landing page and application shell.
+- An in-browser Monaco JSON editor.
+- Live JSON parsing and Zod validation.
+- Dashboard, form, and blank top-level layouts.
+- Recursive rendering of nested components.
+- A central component registry with metadata and starter examples.
+- Cards, data cards, tables, charts, forms, inputs, textareas, selects,
+  checkboxes, radio groups, buttons, sections, containers, grids, tabs, and
+  modals.
+- Unknown-component fallback with spelling suggestions.
+- Component-level React error boundaries.
+- Empty states and a loading skeleton component.
+- Responsive page, grid, table, builder, and preview layouts.
+- Search, sorting, and pagination in generated tables.
+- Shared form state and basic required-field validation.
+- Starter configurations for four application types.
+- JSON import, export, reset, and copy controls.
+- Desktop, tablet, and mobile preview frame controls.
+
+Not implemented:
+- AI generation. There is no model/API call that converts a prompt into JSON.
+- Dynamic APIs or backend routes.
+- Dynamic database schemas, migrations, or persistence.
+- Workflow execution or workflow configuration.
+- Authentication or authorization.
+- Real form submission.
+- Persistent workspace storage. State is memory-only.
+- Automated tests.
+
+Important scope statement:
+This is a strong prototype for the Frontend Engineer part of Track A. It is
+not yet the complete Track A objective because APIs, database structure, and
+workflows are not generated.
+
+
+3. MAIN USER JOURNEY AND ROUTES
+===============================
+
+Route: /
+- Landing page.
+- Explains the product and its resilience goals.
+- Shows supported component categories.
+- Lets the user open the builder or load a starter template.
+
+Route: /builder
+- Main workspace.
+- Left panel is the Monaco JSON editor.
+- Right panel is the live application preview.
+- Toolbar changes templates, resets JSON, copies JSON, opens the component
+  catalog, and opens the full-screen preview.
+
+Route: /preview
+- Displays the generated application with less builder chrome.
+- Offers desktop, tablet, and mobile preview widths.
+- Shows a suspended or empty state when configuration cannot be rendered.
+
+Route: /settings
+- Toggles editor theme state.
+- Imports a JSON file.
+- Exports the current JSON file.
+- Clears temporary form values.
+
+
+4. TECHNOLOGY STACK
+===================
+
+Core stack:
+- Next.js 16.2.7: App Router, routes, build system, fonts, and development
+  server.
+- React 19.2.4: UI component model and local interaction state.
+- TypeScript 5: static types for configurations, props, and store state.
+- Tailwind CSS 4: responsive utility styling and design system.
+
+Main supporting libraries:
+- Zustand: small global client-side state store.
+- Zod: runtime JSON/configuration validation.
+- @monaco-editor/react: browser JSON editor.
+- Recharts: generated bar, line, pie, and area charts.
+- Lucide React: icons.
+- clsx: conditional class-name composition through the cn helper.
+- Framer Motion: installed, but currently not used by the source code.
+
+Development tools:
+- ESLint with Next.js Core Web Vitals and TypeScript rules.
+- PostCSS with the Tailwind CSS plugin.
+
+
+5. END-TO-END DATA FLOW
+=======================
+
+1. Entry:
+   A sample is selected, a JSON file is imported, or text is edited in Monaco.
+
+2. Store update:
+   setJsonString in src/store/useAppStore.ts stores the text and immediately
+   calls parseJson.
+
+3. Syntax parsing:
+   safeJsonParse catches JSON.parse exceptions and returns an error instead of
+   throwing into React.
+
+4. Schema validation:
+   validatePageConfig checks the parsed object with Zod and converts Zod issues
+   into path/message records.
+
+5. Render eligibility:
+   Valid configuration becomes parsedConfig. Invalid configuration sets
+   jsonError and suspends live rendering while keeping the editor usable.
+
+6. Top-level layout:
+   LayoutEngine reads layout and chooses DashboardRenderer, FormRenderer, or a
+   direct DynamicRenderer.
+
+7. Component resolution:
+   DynamicRenderer reads each component's type and asks componentRegistry for
+   the corresponding React component.
+
+8. Recursive rendering:
+   Structural components such as grid, section, form, tabs, modal, and
+   container call DynamicRenderer again for their children.
+
+9. Failure isolation:
+   Each resolved component is wrapped in ErrorBoundary. Unknown types resolve
+   to UnknownComponent.
+
+10. Interaction state:
+    Inputs write values to Zustand formData. Tables, tabs, and modals use local
+    React state for their own interactions.
+
+
+6. FRONTEND ARCHITECTURE DECISIONS TO EXPLAIN
+=============================================
+
+Component registry:
+- componentRegistry.ts separates component discovery from rendering.
+- Adding a component means implementing its UI, typing and validating its
+  config, then registering its name, metadata, defaults, and React component.
+- Unknown types have a deliberate fallback instead of causing a page crash.
+
+Recursive renderer:
+- DynamicRenderer is intentionally small.
+- Layout components render children by calling DynamicRenderer again.
+- This allows deeply nested JSON layouts without hard-coding a page.
+
+Runtime validation plus TypeScript:
+- TypeScript protects developers while writing code.
+- Zod protects the application from JSON supplied at runtime.
+- These solve different problems, so both are necessary.
+
+State split:
+- Zustand owns shared state: JSON, parsed config, form values, and shell state.
+- Local React state owns isolated widget behavior: active tab, modal open state,
+  table sorting/search/page, form submission feedback, and viewport selection.
+
+Resilience:
+- Invalid JSON is caught before render.
+- Schema errors are shown in the editor.
+- Missing optional properties use defaults.
+- Unknown components show a warning and suggested type names.
+- Component exceptions are isolated with ErrorBoundary.
+- Empty datasets show deliberate empty states.
+
+Responsive design:
+- Tailwind breakpoint classes reshape navigation, grids, toolbars, dashboards,
+  and forms.
+- DynamicGrid maps JSON column counts to known responsive Tailwind classes.
+- Preview mode lets reviewers inspect three common viewport widths.
+
+
+7. HOW TO ADD A NEW GENERATED COMPONENT
+=======================================
+
+For example, to add a "badge" component:
+
+1. Add BadgeConfig to src/types/schema.ts and include it in ComponentConfig.
+2. Add a badge Zod schema to src/lib/validation.ts and include it in the
+   discriminated union.
+3. Create src/components/ui/DynamicBadge.tsx with safe defaults.
+4. Register "badge" in src/registry/componentRegistry.ts with its component,
+   description, expected props, and defaultState.
+5. Add it to a sample configuration if a demo is useful.
+6. Add tests for valid, missing, invalid, and nested configurations.
+
+The renderer itself should not need to change. That is the main extensibility
+benefit of the registry architecture.
+
+
+8. HONEST CODE REVIEW
+=====================
+
+Strengths:
+- Clear separation between schema, validation, registry, renderer, state, and
+  leaf UI components.
+- The central registry is easy to extend and easy to demonstrate.
+- Nested layouts are supported through recursive rendering.
+- Unknown component handling is unusually thoughtful and includes suggested
+  corrections.
+- Error boundaries prevent one broken leaf component from taking down the full
+  generated page.
+- Missing optional data is generally handled with useful defaults or empty
+  states.
+- The generated table and charts provide meaningful interactive behavior.
+- The UI is visually cohesive and responsive.
+
+Highest-priority gaps and risks:
+
+1. The project does not generate APIs, database structures, or workflows.
+   It should be presented as the frontend runtime portion of the assignment,
+   not as the complete full-stack objective.
+
+2. Full-screen preview does not reliably carry the current builder state.
+   The full-screen links use target="_blank", while Zustand state is only held
+   in memory. A new browser tab initializes a new store with DEFAULT_JSON, so a
+   custom unsaved builder config can open as the default employee dashboard.
+   Persistence through localStorage, URL state, or a backend would fix this.
+
+3. DynamicRenderer creates unstable keys.
+   When config.id is absent, the key includes generateId(), which creates a new
+   random value on every render. React therefore remounts generated components
+   and can lose local table, tab, modal, or other widget state. Stable IDs
+   should be assigned during normalization or derived deterministically.
+
+4. Validation behavior is intentionally permissive but inconsistent.
+   componentSchema allows a broad base-component fallback after the known
+   discriminated union. This helps unknown types render, but can also allow a
+   known type with bad props through the fallback. The raw, unnormalized input
+   is then stored instead of Zod's parsed result. Broken known props may reach a
+   leaf component and be caught only by ErrorBoundary.
+
+5. Some invalid top-level or missing required structure suspends the entire
+   preview.
+   This is graceful compared with a crash, but it does not partially render the
+   valid components. A normalization layer could repair/default individual
+   nodes and report warnings while preserving the rest of the page.
+
+6. Form architecture has overlapping responsibilities.
+   A form-layout page uses FormRenderer, while a configured "form" component
+   uses DynamicForm. Samples can therefore render a form inside another form,
+   which is invalid HTML. DynamicForm submission is also a no-op, and generated
+   DynamicButton components use type="button".
+
+7. Required fields with visible default values can fail validation.
+   Inputs display defaultValue when Zustand has no value, but FormRenderer only
+   checks Zustand formData. An untouched required field can look filled while
+   being treated as empty during submission.
+
+8. Several declared/configured features are not connected.
+   PageConfig.theme is unused. Chart dataKey and xKey are unused. Store
+   isLoading, activeModal, setLoading, and setActiveModal are unused.
+   LoadingSkeleton and useJsonValidation are unused. Light mode changes a root
+   class, but most UI colors are hard-coded as dark-theme classes.
+
+9. State is temporary.
+   Refreshing the page resets JSON and form data. Import/export partly solves
+   this manually, but there is no automatic persistence.
+
+10. There are no automated tests.
+    The most valuable tests would cover validation, unknown types, malformed
+    fields, recursive nesting, stable component identity, form validation, and
+    preview state persistence.
+
+11. Lint currently fails.
+    The review ran npm run lint with Node v22.14.0 and npm 10.9.2.
+    Result: 11 errors and 17 warnings.
+    Main errors are explicit any types and setState called directly in an
+    effect. Warnings include unused imports/variables and table hook dependency
+    issues.
+
+12. README.md is still the default create-next-app README.
+    EXPLAIN.txt now documents the real project, but the public README should
+    eventually be updated before submission.
+
+Recommended improvement order:
+1. Fix unstable renderer keys and full-screen preview state sharing.
+2. Unify FormRenderer and DynamicForm responsibilities.
+3. Add a normalization pipeline that returns repaired config plus warnings.
+4. Fix lint and add focused tests for broken configurations.
+5. Wire or remove incomplete state/config options.
+6. Add persistence.
+7. Add backend/API/database/workflow generation only if the submission is
+   expected to satisfy the complete Track A objective.
+
+
+9. WHAT TO EXPLAIN IN AN INTERVIEW OR DEMO
+==========================================
+
+Start with this short explanation:
+
+"I chose the Frontend Engineer role. I built a metadata-driven React runtime
+that converts runtime JSON into responsive dashboards, forms, tables, charts,
+and nested layouts. The architecture separates runtime validation, a component
+registry, recursive rendering, shared state, and leaf UI components. Invalid
+JSON suspends preview safely, unknown component types show a useful fallback,
+and individual render failures are isolated by error boundaries."
+
+Then explain these points:
+
+1. Why metadata-driven:
+   Pages can be changed without writing a new React page. JSON becomes the
+   source of truth for layout and components.
+
+2. Why a registry:
+   It avoids a large switch statement inside the renderer and gives one place
+   for component implementation, documentation, defaults, and discovery.
+
+3. Why recursive rendering:
+   It supports grids inside sections, fields inside forms, charts inside tabs,
+   and other nested application structures.
+
+4. Why TypeScript and Zod:
+   TypeScript protects authored code; Zod protects runtime input that TypeScript
+   cannot trust.
+
+5. How broken configuration is handled:
+   Syntax errors are caught, schema issues are displayed, optional values have
+   fallbacks, unknown types render a warning, and leaf exceptions are isolated.
+
+6. Why Zustand:
+   The editor, preview, settings, and generated form fields need shared state.
+   Zustand provides that without a large provider hierarchy.
+
+7. How extensibility works:
+   Describe the six-step "add badge" process in section 7.
+
+8. What you would improve:
+   Be direct about state persistence, stable keys, form responsibility,
+   normalization, lint, tests, and the missing backend features. Showing that
+   you understand limitations is stronger than claiming they do not exist.
+
+Suggested demo sequence:
+1. Open the landing page and select Employee Dashboard.
+2. In Builder, change a card title/value and show immediate preview updates.
+3. Change a component type from "card" to "crad" and show UnknownComponent's
+   suggestion.
+4. Remove optional card fields and show safe defaults.
+5. Break JSON syntax and show editor errors plus suspended preview.
+6. Restore JSON and demonstrate table search/sort/pagination.
+7. Show nested form, tabs, chart, grid, and modal components.
+8. Open the component catalog and explain registry metadata.
+9. Show responsive preview widths.
+10. Explain the known new-tab state limitation before a reviewer discovers it.
+
+Questions you should be ready to answer:
+- How would you add a new component without changing the renderer?
+- Where should normalization happen?
+- Why can TypeScript not validate user JSON by itself?
+- How do error boundaries differ from Zod validation?
+- How would you preserve current configuration across tabs and refreshes?
+- How would you generate APIs/database/workflows from the same metadata?
+- How would you test invalid and inconsistent schemas?
+
+
+10. HOW TO RUN THE PROJECT
+==========================
+
+Requirements:
+- Node.js 20.9.0 or newer. Next.js 16.2.7 declares node >=20.9.0.
+- npm.
+- No environment variables, API keys, database, or backend service are
+  currently required.
+
+The reviewed machine currently has:
+- Node.js v22.14.0
+- npm 10.9.2
+
+Windows PowerShell development commands:
+
+cd "C:\Users\91630\OneDrive\Desktop\THE AI\ai-app-generator"
+npm install
+npm run dev
+
+Then open:
+http://localhost:3000
+
+Useful routes:
+http://localhost:3000/
+http://localhost:3000/builder
+http://localhost:3000/preview
+http://localhost:3000/settings
+
+For a clean, lockfile-based dependency install, use this instead of npm install:
+
+npm ci
+
+Production commands:
+
+npm run build
+npm run start
+
+Then open:
+http://localhost:3000
+
+Code-quality command:
+
+npm run lint
+
+Current verification status:
+- npm run lint was run and failed with 11 errors and 17 warnings.
+- npm run build was not run during this review because it writes generated
+  output into .next, and the instruction was not to change anything except the
+  requested explanation file.
+
+If port 3000 is already in use, Next.js normally offers another available port.
+You can also choose one explicitly:
+
+npm run dev -- -p 3001
+
+
+11. COMPLETE DIRECTORY AND FILE EXPLANATION
+===========================================
+
+GENERATED/INTERNAL DIRECTORIES
+------------------------------
+
+.git/
+- Git's internal repository database and metadata.
+- It is not application runtime code and should not be manually edited.
+
+.next/
+- Generated Next.js development/build cache and route/type output.
+- Created and updated by next dev and next build.
+- It can be deleted and regenerated; it should not be committed.
+
+node_modules/
+- Installed npm dependencies and their internal files.
+- Generated from package.json and package-lock.json by npm install or npm ci.
+- It should not be manually edited or committed.
+
+
+ROOT FILES
+----------
+
+.gitignore
+- Tells Git to ignore dependencies, Next.js output, coverage, environment
+  files, logs, Vercel metadata, and TypeScript generated files.
+
+AGENTS.md
+- Instructions for coding agents working in this repository.
+- Warns that this Next.js version may differ from older conventions and asks
+  agents to consult the installed Next.js documentation before code changes.
+
+CLAUDE.md
+- Contains "@AGENTS.md", directing Claude-compatible tooling to the same
+  repository instructions.
+
+EXPLAIN.txt
+- This complete architecture, review, interview, run, and file guide.
+
+README.md
+- Default create-next-app README.
+- Explains generic Next.js development and deployment, but does not explain the
+  AppForge implementation.
+
+eslint.config.mjs
+- Flat ESLint configuration.
+- Enables Next.js Core Web Vitals and TypeScript lint rules.
+- Ignores generated output such as .next, out, build, and next-env.d.ts.
+
+next-env.d.ts
+- Generated Next.js TypeScript declarations.
+- References Next.js and image types plus generated development route types.
+- The file itself says not to edit it.
+
+next.config.ts
+- Typed Next.js configuration.
+- Currently contains no custom Next.js options.
+
+package.json
+- Defines the project name/version and npm scripts.
+- Scripts are dev, build, start, and lint.
+- Declares runtime and development dependencies.
+
+package-lock.json
+- npm lockfile version 3.
+- Pins the complete dependency tree and integrity hashes for reproducible
+  installs.
+
+postcss.config.mjs
+- Configures PostCSS to process styles with @tailwindcss/postcss.
+
+tsconfig.json
+- TypeScript compiler configuration.
+- Enables strict mode, no emitted JS, bundler module resolution, Next.js
+  plugin support, JSX, and the @/* alias pointing to src/*.
+
+
+PUBLIC ASSETS
+-------------
+
+public/file.svg
+- Generic file/document icon from the create-next-app starter.
+- Currently not referenced by application source.
+
+public/globe.svg
+- Generic globe icon from the create-next-app starter.
+- Currently not referenced by application source.
+
+public/next.svg
+- Next.js wordmark asset from the starter.
+- Currently not referenced by application source.
+
+public/vercel.svg
+- Vercel triangle logo from the starter.
+- Currently not referenced by application source.
+
+public/window.svg
+- Generic browser window icon from the starter.
+- Currently not referenced by application source.
+
+
+APP ROUTES AND GLOBAL UI
+------------------------
+
+src/app/favicon.ico
+- Browser tab icon for the Next.js application.
+
+src/app/globals.css
+- Imports Tailwind CSS.
+- Defines light/dark CSS variables, global body behavior, a grid background,
+  custom scrollbars, Recharts tooltip overrides, and a glass-panel utility.
+
+src/app/layout.tsx
+- Root Next.js layout used by every route.
+- Loads Geist Sans and Geist Mono fonts.
+- Defines AppForge metadata and renders route content inside html/body.
+
+src/app/page.tsx
+- Home route.
+- Presents the product, feature cards, template cards, resilience claims, and
+  supported component catalog summary.
+- Loads a selected sample into Zustand and navigates to /builder.
+
+src/app/builder/page.tsx
+- Builder route.
+- Composes toolbar, JsonEditor, LivePreview, sample selector, reset/copy
+  controls, full-screen link, and component catalog drawer.
+
+src/app/preview/page.tsx
+- Full-screen preview route.
+- Handles mounted/loading, invalid config, empty config, and valid config
+  states.
+- Offers desktop/tablet/mobile preview widths and renders LayoutEngine.
+
+src/app/settings/page.tsx
+- Settings route.
+- Handles theme toggle, JSON import/export, success messages, and form-state
+  clearing.
+
+
+EDITOR COMPONENT
+----------------
+
+src/components/editor/JsonEditor.tsx
+- Wraps Monaco Editor as a controlled JSON editor.
+- Reads/writes JSON through Zustand.
+- Displays syntax and schema validation errors below the editor.
+- Changes Monaco's editor theme based on isDarkMode.
+
+
+APPLICATION SHELL COMPONENTS
+----------------------------
+
+src/components/layout/AppShell.tsx
+- Shared shell for home, builder, and settings.
+- Places Sidebar beside Header and scrollable route content.
+
+src/components/layout/Header.tsx
+- Top navigation header.
+- Opens mobile sidebar, toggles dark mode, and displays placeholder
+  notification/user controls.
+
+src/components/layout/Sidebar.tsx
+- Responsive primary navigation.
+- Contains links to Home, App Builder, Preview, and Settings.
+- Handles mobile overlay/open state through Zustand.
+
+
+PREVIEW COMPONENT
+-----------------
+
+src/components/preview/LivePreview.tsx
+- Builder's embedded preview panel.
+- Shows suspended, empty, or rendered states.
+- Sends valid parsed configuration into LayoutEngine.
+
+
+RENDERING ENGINE COMPONENTS
+---------------------------
+
+src/components/renderer/DynamicRenderer.tsx
+- Core metadata-to-React renderer.
+- Guards against empty or non-array component input.
+- Resolves each component type through the registry.
+- Wraps each generated component in ErrorBoundary.
+- Recursion is achieved when structural components call it for children.
+
+src/components/renderer/LayoutEngine.tsx
+- Selects dashboard, form, or blank page presentation from PageConfig.layout.
+- Supplies top-level page title/description/chrome.
+
+src/components/renderer/DashboardRenderer.tsx
+- Groups direct top-level dashboard components into metric, data, and general
+  sections.
+- Applies dashboard-oriented responsive grids before delegating rendering.
+
+src/components/renderer/FormRenderer.tsx
+- Top-level form-layout renderer.
+- Recursively finds configured fields, validates required values, simulates
+  submission, reports errors/success, and resets shared form state.
+
+
+SHARED COMPONENTS
+-----------------
+
+src/components/shared/ComponentCatalog.tsx
+- Reads all component metadata from the registry.
+- Displays type descriptions and expected props.
+- Copies a selected component's default JSON configuration.
+
+src/components/shared/EmptyState.tsx
+- Reusable no-data/no-components presentation with configurable text.
+
+src/components/shared/ErrorBoundary.tsx
+- Class-based React error boundary.
+- Catches descendant rendering errors, logs diagnostics, displays a fallback,
+  exposes stack details, and offers a retry control.
+
+src/components/shared/LoadingSkeleton.tsx
+- Reusable skeleton variants for cards, tables, charts, and text.
+- Exists but is not currently connected to application loading state.
+
+
+GENERATED UI COMPONENTS
+-----------------------
+
+src/components/ui/ChartComponent.tsx
+- Renders bar, line, pie, or area charts using Recharts.
+- Safely displays an empty chart state when no data is supplied.
+- Currently assumes "name" and "value" keys even though config types declare
+  dataKey and xKey.
+
+src/components/ui/DashboardCard.tsx
+- Renders a metric/KPI card with optional icon, trend, direction, variant, and
+  safe text defaults.
+
+src/components/ui/DynamicButton.tsx
+- Renders configured button label, style variant, size, disabled state, and
+  loading spinner.
+- Uses type="button", so it does not submit forms.
+
+src/components/ui/DynamicCheckbox.tsx
+- Renders a custom checkbox and stores its boolean value in Zustand formData.
+
+src/components/ui/DynamicContainer.tsx
+- Applies optional runtime padding/max-width styles and recursively renders
+  children.
+
+src/components/ui/DynamicDataCard.tsx
+- Displays a title and configured label/value detail rows.
+- Shows a no-fields message when fields are absent.
+
+src/components/ui/DynamicForm.tsx
+- Renders a configured form wrapper and recursive children.
+- Displays an optional submit button, but submission currently has no behavior.
+- Imports shared reset state but does not use it.
+
+src/components/ui/DynamicGrid.tsx
+- Maps a configured 1-12 column count to known responsive Tailwind grid
+  classes.
+- Recursively renders each child and shows an empty-grid fallback.
+
+src/components/ui/DynamicInput.tsx
+- Controlled single-line input backed by Zustand formData.
+- Supports label, placeholder, input type, required marker, and default value.
+
+src/components/ui/DynamicModal.tsx
+- Renders a configured trigger and local-state modal overlay.
+- Supports configured title, size, recursive children, close button, and
+  backdrop close.
+
+src/components/ui/DynamicRadioGroup.tsx
+- Renders exclusive choices and stores the selected value in Zustand.
+
+src/components/ui/DynamicSection.tsx
+- Renders section title/description followed by recursive child components.
+
+src/components/ui/DynamicSelect.tsx
+- Renders configured dropdown options and stores selection in Zustand.
+
+src/components/ui/DynamicTable.tsx
+- Renders configurable or inferred columns and data rows.
+- Supports case-insensitive search, sortable columns, status pills, horizontal
+  overflow, empty states, and five-row pagination.
+
+src/components/ui/DynamicTabs.tsx
+- Renders local-state tab navigation and recursively renders the active tab's
+  children.
+
+src/components/ui/DynamicTextarea.tsx
+- Controlled multi-line input backed by Zustand formData.
+- Supports label, placeholder, rows, required marker, and default value.
+
+src/components/ui/UnknownComponent.tsx
+- Safe fallback for unregistered component types.
+- Uses Levenshtein distance to suggest similar registered type names.
+
+
+DATA, HOOKS, LIBRARIES, REGISTRY, STATE, AND TYPES
+--------------------------------------------------
+
+src/data/sampleConfigs.ts
+- Contains four typed starter applications:
+  Employee Dashboard, Contact Form, Analytics Dashboard, and Settings Page.
+- Demonstrates nested grids, charts, tables, tabs, data cards, and forms.
+
+src/hooks/useDarkMode.ts
+- Reads dark-mode state from Zustand and adds/removes the "dark" class on the
+  root html element.
+
+src/hooks/useJsonValidation.ts
+- Separate lightweight JSON-object validation hook.
+- It is currently unused; the active validation path is in useAppStore plus
+  src/lib/validation.ts.
+
+src/lib/utils.ts
+- Shared helpers:
+  cn for class names, safeGet for nested access, safeJsonParse, generateId,
+  formatNumber, and debounce.
+- safeGet, formatNumber, and debounce are currently unused.
+
+src/lib/validation.ts
+- Defines Zod schemas for all supported component configurations.
+- Uses recursive lazy schemas for components that can contain children.
+- Adds a generic fallback for unknown type strings.
+- Defines page-level validation and converts Zod issues into readable errors.
+
+src/registry/componentRegistry.ts
+- Central registry mapping JSON type names to React components.
+- Stores display names, descriptions, expected props, and default example
+  state for the component catalog.
+- Exposes lookup and listing helper functions.
+
+src/store/useAppStore.ts
+- Zustand global state store.
+- Owns JSON text, parsed config, errors, form values, loading/theme/modal/sample
+  state, and sidebar state.
+- Contains the default employee dashboard JSON.
+- Parses and validates JSON whenever setJsonString is called.
+
+src/types/schema.ts
+- TypeScript source of truth for PageConfig, all component config interfaces,
+  the ComponentConfig union, and AppState.
+- Keeps renderer, registry, samples, store, and UI props aligned during
+  development.
+
+
+12. FINAL ASSESSMENT
+====================
+
+This project demonstrates good Frontend Engineer instincts: reusable
+components, metadata-driven rendering, shared state, responsive layouts,
+runtime validation, extensibility, and graceful visual fallbacks.
+
+For submission, describe it accurately as a frontend application runtime and
+show ownership by openly explaining the current limitations. The clearest path
+to a stronger submission is to fix state identity/persistence and form
+architecture, add a normalization-and-warning layer, make lint pass, and add
+tests focused on malformed configuration.
